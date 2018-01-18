@@ -62,8 +62,36 @@ I'll worry about turning each component into it's own container later. For now I
 
 ### Ingestion Agent
 
+The Ingestion Agent needs to accept JSON requests and push them to Redis for the Delivery Agent to process. This is the JSON request format from the spec:
 
+```json
+{
+	"endpoint": {
+		"method": "POST",
+		"url": "http://sample.com/data?title={mascot}&image={location}&foo={bar}"
+	},
+	"data": [
+		{
+			"mascot": "Gopher",
+			"location":"https://blog.golang.org/gopher/gopher.png"
+		}
+	]
+}
+```
 
+I'm thinking this will just be a small PHP script. The interesting part in the spec is where it says:
+
+> Push a "postback" object to Redis for each "data" object contained in accepted request.
+
+This makes sense, because an endpoint object might have multiple data objects associated with it. It would be wasteful to push the endpoint object with each data object.
+
+So for each accepted HTTP request to the Ingestion Agent, one `endpoint` object will be pushed to Redis, and one or more `data` objects will be associated with that `endpoint` and pushed to Redis.
+
+These are the Redis commands I'm considering:
+
+1. `SET endpoint:[UUID] [JSON_OBJECT]`
+2. `RPUSH postback endpoint:[UUID]`
+3. `RPUSH endpoint:[UUID]:data [JSON_OBJECT]`
 
 
 
