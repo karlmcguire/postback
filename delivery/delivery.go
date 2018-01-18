@@ -24,9 +24,6 @@ func main() {
 			panic(err)
 		}
 
-		println(postback[1])
-
-		//go NewPostback(db, postback[1])
-		NewPostback(db, postback[1])
+		go NewPostback(db, postback[1])
 	}
 }

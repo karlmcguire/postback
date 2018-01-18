@@ -23,9 +23,9 @@ type Postback struct {
 
 func NewPostback(db *redis.Client, key string) {
 	var (
-		postback *Postback = &Postback{}
-		value    []byte
-		err      error
+		p     *Postback = &Postback{}
+		value []byte
+		err   error
 	)
 
 	// get the json object from the postback:[uuid] key in redis
@@ -38,18 +38,18 @@ func NewPostback(db *redis.Client, key string) {
 		panic(err)
 	}
 
-	// unmarshal the json object into postback variable
-	if err = postback.UnmarshalJSON(value); err != nil {
+	// unmarshal json object to p
+	if err = json.Unmarshal(value, p); err != nil {
 		panic(err)
 	}
 
 	// parse the postback url for params
-	if err = postback.Parse(nil); err != nil {
+	if err = p.Parse(nil); err != nil {
 		panic(err)
 	}
 
 	// start listening for data objects on postback:[uuid]:data
-	postback.Listen(db, key+":data")
+	p.Listen(db, key+":data")
 }
 
 func (p *Postback) Listen(db *redis.Client, key string) {
@@ -67,8 +67,7 @@ func (p *Postback) Listen(db *redis.Client, key string) {
 		}
 
 		// handle the data object
-		//go p.Respond(data[1])
-		p.Respond(data[1])
+		go p.Respond(data[1])
 	}
 }
 
@@ -86,10 +85,8 @@ func (p *Postback) Respond(value string) {
 }
 
 func (p *Postback) Parse(defaults map[string]string) error {
-	// check if there's an odd number of '{' or '}', and if so, return an error
-	// because there's something very wrong
-	if strings.Count(p.Url, "{")%2 != 0 ||
-		strings.Count(p.Url, "}")%2 != 0 {
+	// make sure the {params} are valid
+	if strings.Count(p.Url, "{") != strings.Count(p.Url, "}") {
 		return ErrInvalidParams
 	}
 
@@ -126,8 +123,4 @@ func (p *Postback) Fill(values map[string]string) string {
 	}
 
 	return filled
-}
-
-func (p *Postback) UnmarshalJSON(value []byte) error {
-	return json.Unmarshal(value, p)
 }
