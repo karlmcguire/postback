@@ -49,3 +49,31 @@ $ systemctl enable php7.0-fpm
 $ systemctl restart redis-server.service
 $ systemctl enable redis-server.service
 ```
+
+## Development
+
+I find that I'm most effective when I have a clear mental model of the application architecture. So, I created a diagram based on the project spec to assist me in keeping things organized.
+
+<p align="center">
+	<img src="img/1.svg" />
+</p>
+
+I'll worry about turning each component into it's own container later. For now I'll just write the code. I'll start with the Ingestion Agent. 
+
+### Ingestion Agent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
