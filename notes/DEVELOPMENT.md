@@ -89,9 +89,11 @@ So for each accepted HTTP request to the Ingestion Agent, one `endpoint` object 
 
 These are the Redis commands I'm considering:
 
-1. `SET endpoint:[UUID] [JSON_OBJECT]`
-2. `RPUSH postback endpoint:[UUID]`
-3. `RPUSH endpoint:[UUID]:data [JSON_OBJECT]`
+1. `SET postback:[UUID] [JSON_OBJECT]`
+	* This will contain the `endpoint` JSON object (with a `count` field).
+2. `RPUSH postbacks postback:[UUID]`
+	* The Delivery Agent will listen on this list.
+3. And for each `data` object run `RPUSH postback:[UUID]:data [JSON_OBJECT]`
 
 
 

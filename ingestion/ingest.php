@@ -37,5 +37,37 @@ if(!isset($request["endpoint"]["method"]) ||
 	return;
 }
 
+// the count field is added so the delivery agent knows when to stop listening
+// for data objects
+$request["endpoint"]["count"] = sizeof($request["data"]);
 
+// create a redis object using variables defined in config.php
+$redis = new Redis();
+$redis->pconnect(REDIS_ADDRESS, REDIS_PORT);
+$redis->auth(REDIS_AUTH);
+
+// postback:[hex]
+$postback_key = "postback" . uniqid();
+// postback:[hex]:data
+$postback_data_key = $postback_key . ":data";
+
+// watch for collisions (very rare but possible)
+$redis->watch($postback_key);
+
+// push postback:[hex] to postbacks list, notifying delivery agent there's a new
+// postback object to handle
+$ret = $redis->multi()
+	->set($postback_key, json_encode($request["endpoint"]))
+	->rpush("postbacks", $postback_key)
+	->exec();
+
+// make sure redis transaction was successful
+if($ret[0] == false || $ret[1] == false) {
+	throw new Exception("problem adding to redis");
+}
+
+// push each data object to postback:[hex]:data for delivery agent to handle
+foreach($request["data"] as $data) {
+	$redis->rpush($postback_data_key, json_encode($data));
+}
 ?>
