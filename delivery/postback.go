@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -43,4 +44,24 @@ func (p *Postback) Parse(defaults map[string]string) error {
 	}
 
 	return nil
+}
+
+func (p *Postback) Fill(values map[string]string) string {
+	// create a copy of p.Url to be modified
+	var filled string = p.Url
+
+	// for every param defined in p.Url
+	for param, paramDefault := range p.Params {
+		// if the values map contains a definition for the param, then put it in
+		// the new url
+		if value, exists := values[param[1:len(param)-1]]; exists {
+			filled = strings.Replace(filled, param, url.QueryEscape(value), -1)
+			// if the values map doesn't contain a definition for the param, then
+			// put the default value in the new url
+		} else {
+			filled = strings.Replace(filled, param, url.QueryEscape(paramDefault), -1)
+		}
+	}
+
+	return filled
 }
