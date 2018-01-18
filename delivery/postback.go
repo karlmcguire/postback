@@ -11,19 +11,40 @@ import (
 )
 
 var (
+	// ErrInvalidParams is returned by Postback.Parse() when the number of '{'
+	// brackets doesn't match the number of '}' brackets.
 	ErrInvalidParams = errors.New("url params aren't in '{param}' format")
 )
 
+// Postback is the "task" data type used so the Delivery Agent can handle
+// requests forwarded to Redis by the Ingestion Agent. A Postback has one
+// "endpoint" and at least one "data" object.
 type Postback struct {
-	Method string            `json:"method"`
-	Url    string            `json:"url"`
-	Count  int               `json:"count"`
+	// Method specifies the HTTP method to be used when making a request to Url.
+	Method string `json:"method"`
+	// Url contains the destination URL with {params} to be filled by data
+	// objects. Here's an example:
+	//
+	// "http://sample.com/data?title={mascot}"
+	//
+	// {mascot} will be filled by a "mascot" field in the data objects for this
+	// endpoint.
+	Url string `json:"url"`
+	// Count is the number of data objects for this endpoint.
+	Count int `json:"count"`
+	// Params is created when Postback.Parse() is called. It's a helper field
+	// for keeping track of each {param} in the Url field.
 	Params map[string]string `json:"-"`
 }
 
+// NewPostback is called when a "postback:[uuid]" value is pushed to the
+// "postbacks" list on the Redis instance. This function creates a new Postback
+// struct and populates each field, then calls Postback.Listen() to listen for
+// data objects.
 func NewPostback(db *redis.Client, key string) {
 	var (
-		p     *Postback = &Postback{}
+		p *Postback = &Postback{}
+		// this will be the "postback:[uuid]" value
 		value []byte
 		err   error
 	)
@@ -52,8 +73,12 @@ func NewPostback(db *redis.Client, key string) {
 	p.Listen(db, key+":data")
 }
 
+// Listen is called after NewPostback and accepts up to p.Count data objects
+// from Redis. Each time a data object is pushed to "postback:[uuid]:data", this
+// function will start a new goroutine calling p.Respond() with the data fields.
 func (p *Postback) Listen(db *redis.Client, key string) {
 	var (
+		// will contain the data object json
 		data []string
 		err  error
 	)
@@ -71,6 +96,10 @@ func (p *Postback) Listen(db *redis.Client, key string) {
 	}
 }
 
+// Respond is called for each data object. It fills p.Url with the specified
+// fields and makes an HTTP request to "deliver" the data.
+//
+// TODO: http stuff
 func (p *Postback) Respond(value string) {
 	var (
 		params map[string]string
@@ -84,6 +113,15 @@ func (p *Postback) Respond(value string) {
 	println(p.Fill(params))
 }
 
+// Parse reads each {param} from p.Url into memory, so that it can easily be
+// filled later.
+//
+// The defaults parameter contains a map where each key is a p.Url {param}
+// (without brackets), and each value is the default value. For example:
+//
+// If p.Url is "http://sample.com/data?title={mascot}" and defaults is:
+// {"mascot": "default_mascot"}, then Fill() will return:
+// "http://sample.com/data?title=default_mascot" if values aren't provided.
 func (p *Postback) Parse(defaults map[string]string) error {
 	// make sure the {params} are valid
 	if strings.Count(p.Url, "{") != strings.Count(p.Url, "}") {
@@ -105,6 +143,9 @@ func (p *Postback) Parse(defaults map[string]string) error {
 	return nil
 }
 
+// Fill takes the values map and replaces each {param} in p.Url with it's
+// associated value. If a key doesn't exist in values for each {param}, then
+// the defaults will be used.
 func (p *Postback) Fill(values map[string]string) string {
 	// create a copy of p.Url to be modified
 	var filled string = p.Url
