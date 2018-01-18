@@ -60,7 +60,7 @@ I find that I'm most effective when I have a clear mental model of the applicati
 
 I'll worry about turning each component into it's own container later. For now I'll just write the code. I'll start with the Ingestion Agent. 
 
-### Ingestion Agent
+### Ingestion Agent (1 hour)
 
 The Ingestion Agent needs to accept JSON requests and push them to Redis for the Delivery Agent to process. This is the JSON request format from the spec:
 
@@ -94,6 +94,11 @@ These are the Redis commands I'm considering:
 2. `RPUSH postbacks postback:[UUID]`
 	* The Delivery Agent will listen on this list.
 3. And for each `data` object run `RPUSH postback:[UUID]:data [JSON_OBJECT]`
+
+This seems to be working well for now. I will consider making it more "modular" later. It's small and it works, so now I'll move on to the Delivery Agent.
+
+### Delivery Agent
+
 
 
 
