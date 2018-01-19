@@ -1,0 +1,8 @@
+[Unit]
+Description=Delivery Agent Service
+After=redis-server.service nginx.service php7.0-fpm.service
+
+[Service]
+User=delivery
+Restart=always
+ExecStart=/home/delivery/postback -redis_addr 127.0.0.1:6565 -redis_password 20f71c2cd61e156fcb47cc8073544c48b4d940c12f0db004bfa5db4757601fb3
