@@ -30,6 +30,12 @@ var (
 		"the http address running this program",
 	)
 
+	TESTING_PORT = flag.String(
+		"testing_port",
+		":8080",
+		"the http port to listen on",
+	)
+
 	INGESTION_ADDR = flag.String(
 		"ingestion_addr",
 		"http://127.0.0.1/ingest.php",
@@ -50,6 +56,7 @@ func Producer() {
 		)
 
 		Sent[fmt.Sprintf("%d", i)] = make(map[string]time.Time, 0)
+		Received[fmt.Sprintf("%d", i)] = make(map[string]time.Time, 0)
 
 		for a := 0; a < *DATA_COUNT; a++ {
 			r.AddData(map[string]string{
@@ -134,7 +141,7 @@ func Consumer(incr chan struct{}) {
 		incr <- struct{}{}
 	})
 
-	http.ListenAndServe(*TESTING_ADDR, nil)
+	http.ListenAndServe(*TESTING_PORT, nil)
 }
 
 func init() {
