@@ -142,6 +142,8 @@ func (p *Postback) Respond(value string) {
 		return
 	}
 
+	delivered := time.Now()
+
 	// execute the http request
 	if res, err = client.Do(req); err != nil {
 		log.Print(err)
@@ -155,10 +157,11 @@ func (p *Postback) Respond(value string) {
 	}
 
 	log.Printf(
-		"received: %s\n\tdelivered: %v\n\tstatus: %s\n\tbody: '%s'\n",
+		"received: %s\n\tdelivery time: \t%v\n\tresponse code: \t%s\n\tresponse time: \t%v\n\tresponse body: \t'%s'\n",
 		req.URL.String(),
-		time.Now(),
+		delivered,
 		res.Status,
+		time.Now(),
 		string(body),
 	)
 }
