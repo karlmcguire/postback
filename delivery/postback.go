@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis"
 )
@@ -122,6 +124,7 @@ func (p *Postback) Respond(value string) {
 	var (
 		params map[string]string
 		client *http.Client = &http.Client{}
+		res    *http.Response
 		req    *http.Request
 		err    error
 	)
@@ -139,10 +142,20 @@ func (p *Postback) Respond(value string) {
 	}
 
 	// execute the http request
-	if _, err = client.Do(req); err != nil {
+	if res, err = client.Do(req); err != nil {
 		log.Print(err)
 		return
 	}
+
+	var buf *bytes.Buffer
+	buf.ReadFrom(res.Body)
+
+	log.Printf(
+		"received: %s\n\tdelivered: %v\n\tresponse: %s\n\tbody: '%s'\n",
+		req.URL.String(),
+		time.Now(),
+		buf.String(),
+	)
 }
 
 // Parse reads each {param} from p.Url into memory, so that it can easily be
