@@ -13,7 +13,7 @@ const (
 	DATA_COUNT    = 10
 )
 
-var Performance = make(map[string]map[string]int64)
+var Performance = make(map[string]map[string]int64, 0)
 
 func Producer() {
 	var (
@@ -22,9 +22,11 @@ func Producer() {
 	)
 
 	for i := 0; i < REQUEST_COUNT; i++ {
+		Performance[fmt.Sprintf("%d", i)] = make(map[string]int64, 0)
+
 		r = NewRequest(
 			"GET",
-			os.Getenv("TESTING_ADDR")+"/?time={time}&req_id={rid}&data_id={did}",
+			os.Getenv("TESTING_ADDR")+"/?time={time}&req_id={req_id}&data_id={data_id}",
 		)
 
 		for a := 0; a < DATA_COUNT; a++ {
@@ -73,10 +75,9 @@ func Counter(incr, stop chan struct{}) {
 	}
 
 	fmt.Printf(
-		"consumer: \tjust received %d requests taking on average %dns (%dms)",
+		"consumer: \tjust received %d requests taking on average %dms\n",
 		REQUEST_COUNT*DATA_COUNT,
 		GetPerformance(),
-		GetPerformance()*1000000,
 	)
 
 	stop <- struct{}{}
@@ -84,16 +85,16 @@ func Counter(incr, stop chan struct{}) {
 
 func Consumer(incr chan struct{}) {
 	fmt.Printf(
-		"consumer: \tlistening at %s%s",
+		"consumer: \tlistening at %s%s\n",
 		os.Getenv("TESTING_ADDR"),
 		os.Getenv("TESTING_PORT"),
 	)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var (
-			reqId      = r.URL.Query().Get("req_id")
-			dataId     = r.URL.Query().Get("data_id")
-			timeString = r.URL.Query().Get("time")
+			reqId      = r.FormValue("req_id")
+			dataId     = r.FormValue("data_id")
+			timeString = r.FormValue("time")
 			now        = time.Now().UnixNano()
 			timeNano   int64
 			err        error

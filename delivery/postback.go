@@ -123,17 +123,17 @@ func (p *Postback) Respond(value string) {
 
 	// convert the json string into string map
 	if err = json.Unmarshal([]byte(value), &params); err != nil {
-		panic(err)
+		// log error
 	}
 
 	// create a new request using the endpoint method/url and data params
 	if req, err = http.NewRequest(p.Method, p.Fill(params), nil); err != nil {
-		panic(err)
+		// log error
 	}
 
 	// execute the http request
 	if res, err = client.Do(req); err != nil {
-		panic(err)
+		// log error
 	}
 
 	fmt.Println(res.StatusCode)
