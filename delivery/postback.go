@@ -155,9 +155,10 @@ func (p *Postback) Respond(value string) {
 	}
 
 	log.Printf(
-		"received: %s\n\tdelivered: %v\n\tresponse: %s\n\tbody: '%s'\n",
+		"received: %s\n\tdelivered: %v\n\tstatus: %s\n\tbody: '%s'\n",
 		req.URL.String(),
 		time.Now(),
+		res.Status,
 		string(body),
 	)
 }
