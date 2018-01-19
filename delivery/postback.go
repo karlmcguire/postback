@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -14,6 +16,10 @@ var (
 	// ErrInvalidParams is returned by Postback.Parse() when the number of '{'
 	// brackets doesn't match the number of '}' brackets.
 	ErrInvalidParams = errors.New("url params aren't in '{param}' format")
+
+	// ErrInvalidMethod is thrown when a new postback object is pulled from
+	// Redis and the "method" field isn't GET, POST, or PUT.
+	ErrInvalidMethod = errors.New("method field isn't a valid HTTP method")
 )
 
 // Postback is the "task" data type used so the Delivery Agent can handle
@@ -22,6 +28,7 @@ var (
 type Postback struct {
 	// Method specifies the HTTP method to be used when making a request to Url.
 	Method string `json:"method"`
+
 	// Url contains the destination URL with {params} to be filled by data
 	// objects. Here's an example:
 	//
@@ -30,8 +37,10 @@ type Postback struct {
 	// {mascot} will be filled by a "mascot" field in the data objects for this
 	// endpoint.
 	Url string `json:"url"`
+
 	// Count is the number of data objects for this endpoint.
 	Count int `json:"count"`
+
 	// Params is created when Postback.Parse() is called. It's a helper field
 	// for keeping track of each {param} in the Url field.
 	Params map[string]string `json:"-"`
@@ -62,6 +71,11 @@ func NewPostback(db *redis.Client, key string) {
 	// unmarshal json object to p
 	if err = json.Unmarshal(value, p); err != nil {
 		panic(err)
+	}
+
+	// make sure method field is valid, can add more if needed
+	if p.Method != "GET" && p.Method != "POST" && p.Method != "PUT" {
+		panic(ErrInvalidMethod)
 	}
 
 	// parse the postback url for params
@@ -98,19 +112,31 @@ func (p *Postback) Listen(db *redis.Client, key string) {
 
 // Respond is called for each data object. It fills p.Url with the specified
 // fields and makes an HTTP request to "deliver" the data.
-//
-// TODO: http stuff
 func (p *Postback) Respond(value string) {
 	var (
 		params map[string]string
+		client *http.Client = &http.Client{}
+		res    *http.Response
+		req    *http.Request
 		err    error
 	)
 
+	// convert the json string into string map
 	if err = json.Unmarshal([]byte(value), &params); err != nil {
 		panic(err)
 	}
 
-	println(p.Fill(params))
+	// create a new request using the endpoint method/url and data params
+	if req, err = http.NewRequest(p.Method, p.Fill(params), nil); err != nil {
+		panic(err)
+	}
+
+	// execute the http request
+	if res, err = client.Do(req); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(res.StatusCode)
 }
 
 // Parse reads each {param} from p.Url into memory, so that it can easily be
@@ -120,7 +146,7 @@ func (p *Postback) Respond(value string) {
 // (without brackets), and each value is the default value. For example:
 //
 // If p.Url is "http://sample.com/data?title={mascot}" and defaults is:
-// {"mascot": "default_mascot"}, then Fill() will return:
+// {"mascot": "default_mascot"}, then Postback.Fill(nil) will return:
 // "http://sample.com/data?title=default_mascot" if values aren't provided.
 func (p *Postback) Parse(defaults map[string]string) error {
 	// make sure the {params} are valid

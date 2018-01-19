@@ -46,16 +46,16 @@ $redis = new Redis();
 $redis->pconnect(REDIS_ADDRESS, REDIS_PORT);
 $redis->auth(REDIS_AUTH);
 
-// postback:[hex]
+// postback:[uuid]
 $postback_key = "postback" . uniqid();
-// postback:[hex]:data
+// postback:[uuid]:data
 $postback_data_key = $postback_key . ":data";
 
 // watch for collisions (very rare but possible)
 $redis->watch($postback_key);
 
-// push postback:[hex] to postbacks list, notifying delivery agent there's a new
-// postback object to handle
+// push postback:[uuid] to postbacks list, notifying delivery agent there's a 
+// new postback object to handle
 $ret = $redis->multi()
 	->set($postback_key, json_encode($request["endpoint"]))
 	->rpush("postbacks", $postback_key)
@@ -66,7 +66,7 @@ if($ret[0] == false || $ret[1] == false) {
 	throw new Exception("problem adding to redis");
 }
 
-// push each data object to postback:[hex]:data for delivery agent to handle
+// push each data object to postback:[uuid]:data for delivery agent to handle
 foreach($request["data"] as $data) {
 	$redis->rpush($postback_data_key, json_encode($data));
 }
