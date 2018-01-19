@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -60,27 +60,32 @@ func NewPostback(db *redis.Client, key string) {
 
 	// get the json object from the postback:[uuid] key in redis
 	if value, err = db.Get(key).Bytes(); err != nil {
-		panic(err)
+		log.Print(err)
+		return
 	}
 
 	// delete the postback:[uuid] key from redis
 	if err = db.Del(key).Err(); err != nil {
-		panic(err)
+		log.Print(err)
+		return
 	}
 
 	// unmarshal json object to p
 	if err = json.Unmarshal(value, p); err != nil {
-		panic(err)
+		log.Print(err)
+		return
 	}
 
 	// make sure method field is valid, can add more if needed
 	if p.Method != "GET" && p.Method != "POST" && p.Method != "PUT" {
-		panic(ErrInvalidMethod)
+		log.Print(ErrInvalidMethod)
+		return
 	}
 
 	// parse the postback url for params
 	if err = p.Parse(nil); err != nil {
-		panic(err)
+		log.Print(err)
+		return
 	}
 
 	// start listening for data objects on postback:[uuid]:data
@@ -102,7 +107,8 @@ func (p *Postback) Listen(db *redis.Client, key string) {
 	for i := 0; i < p.Count; i++ {
 		// block until data object is available
 		if data, err = db.BLPop(0, key).Result(); err != nil {
-			panic(err)
+			log.Print(err)
+			return
 		}
 
 		// handle the data object
@@ -116,27 +122,27 @@ func (p *Postback) Respond(value string) {
 	var (
 		params map[string]string
 		client *http.Client = &http.Client{}
-		res    *http.Response
 		req    *http.Request
 		err    error
 	)
 
 	// convert the json string into string map
 	if err = json.Unmarshal([]byte(value), &params); err != nil {
-		// log error
+		log.Print(err)
+		return
 	}
 
 	// create a new request using the endpoint method/url and data params
 	if req, err = http.NewRequest(p.Method, p.Fill(params), nil); err != nil {
-		// log error
+		log.Print(err)
+		return
 	}
 
 	// execute the http request
-	if res, err = client.Do(req); err != nil {
-		// log error
+	if _, err = client.Do(req); err != nil {
+		log.Print(err)
+		return
 	}
-
-	fmt.Println(res.StatusCode)
 }
 
 // Parse reads each {param} from p.Url into memory, so that it can easily be

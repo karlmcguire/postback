@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/go-redis/redis"
@@ -16,15 +17,15 @@ func main() {
 		err      error
 	)
 
-	println("watching redis at " + os.Getenv("REDIS_ADDR"))
+	log.Printf("watching redis at %s\n", os.Getenv("REDIS_ADDR"))
 
 	// listen forever
 	for {
 		// block until a new postback:[uuid] value is pushed to the postbacks
 		// list
 		if postback, err = db.BLPop(0, "postbacks").Result(); err != nil {
-			// TODO: handle errors better
-			panic(err)
+			log.Print(err)
+			continue
 		}
 
 		// since redis operations are atomic, we can be sure there's only one
