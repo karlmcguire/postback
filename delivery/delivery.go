@@ -1,23 +1,40 @@
 package main
 
 import (
+	"flag"
 	"log"
-	"os"
 
 	"github.com/go-redis/redis"
 )
 
+var (
+	REDIS_ADDR = flag.String(
+		"redis_addr",
+		"127.0.0.1:6379",
+		"address of redis server to listen for postback objects",
+	)
+	REDIS_PASSWORD = flag.String(
+		"redis_password",
+		"none",
+		"password for authenticating with redis",
+	)
+)
+
+func init() {
+	flag.Parse()
+}
+
 func main() {
 	var (
 		db = redis.NewClient(&redis.Options{
-			Addr:     os.Getenv("REDIS_ADDR"),
-			Password: os.Getenv("REDIS_PASSWORD"),
+			Addr:     *REDIS_ADDR,
+			Password: *REDIS_PASSWORD,
 		})
 		postback []string
 		err      error
 	)
 
-	log.Printf("watching redis at %s\n", os.Getenv("REDIS_ADDR"))
+	log.Printf("watching redis at %s\n", *REDIS_ADDR)
 
 	// listen forever
 	for {
