@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -13,7 +12,10 @@ const (
 	DATA_COUNT    = 10
 )
 
-var Performance = make(map[string]map[string]int64, 0)
+var (
+	Sent     = make(map[string]map[string]time.Time, 0)
+	Received = make(map[string]map[string]time.Time, 0)
+)
 
 func Producer() {
 	var (
@@ -22,21 +24,20 @@ func Producer() {
 	)
 
 	for i := 0; i < REQUEST_COUNT; i++ {
-		Performance[fmt.Sprintf("%d", i)] = make(map[string]int64, 0)
-
 		r = NewRequest(
 			"GET",
-			os.Getenv("TESTING_ADDR")+"/?time={time}&req_id={req_id}&data_id={data_id}",
+			os.Getenv("TESTING_ADDR")+"/?req_id={req_id}&data_id={data_id}",
 		)
 
+		Sent[fmt.Sprintf("%d", i)] = make(map[string]time.Time, 0)
+
 		for a := 0; a < DATA_COUNT; a++ {
-			data := map[string]string{
-				"time":    fmt.Sprintf("%d", time.Now().UnixNano()),
+			r.AddData(map[string]string{
 				"req_id":  fmt.Sprintf("%d", i),
 				"data_id": fmt.Sprintf("%d", a),
-			}
+			})
 
-			r.AddData(data)
+			Sent[fmt.Sprintf("%d", i)][fmt.Sprintf("%d", a)] = time.Now()
 		}
 
 		if err = r.Send(os.Getenv("INGESTION_ADDR")); err != nil {
@@ -51,20 +52,33 @@ func Producer() {
 	)
 }
 
-func GetPerformance() int64 {
-	var (
-		count int64 = 0
-		total int64 = 0
-	)
+func GetPerformance() time.Duration {
+	var durations []time.Duration
 
-	for _, req := range Performance {
-		for _, diff := range req {
-			total = total + diff
-			count++
+	for reqId, _ := range Sent {
+		for dataId, _ := range Sent[reqId] {
+			durations = append(
+				durations,
+				Received[reqId][dataId].Sub(
+					Sent[reqId][dataId],
+				),
+			)
 		}
 	}
 
-	return total / count
+	var (
+		d time.Duration
+		i int
+		t int64
+	)
+
+	for i, d = range durations {
+		t = t + int64(d/time.Millisecond)
+	}
+
+	d, _ = time.ParseDuration(fmt.Sprintf("%dms", t/int64(i)))
+
+	return d
 }
 
 func Counter(incr, stop chan struct{}) {
@@ -75,7 +89,7 @@ func Counter(incr, stop chan struct{}) {
 	}
 
 	fmt.Printf(
-		"consumer: \tjust received %d requests taking on average %dms\n",
+		"consumer: \tjust received %d requests taking on average %v\n",
 		REQUEST_COUNT*DATA_COUNT,
 		GetPerformance(),
 	)
@@ -92,19 +106,11 @@ func Consumer(incr chan struct{}) {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var (
-			reqId      = r.FormValue("req_id")
-			dataId     = r.FormValue("data_id")
-			timeString = r.FormValue("time")
-			now        = time.Now().UnixNano()
-			timeNano   int64
-			err        error
+			reqId  = r.FormValue("req_id")
+			dataId = r.FormValue("data_id")
 		)
 
-		if timeNano, err = strconv.ParseInt(timeString, 10, 64); err != nil {
-			panic(err)
-		}
-
-		Performance[reqId][dataId] = now - timeNano
+		Received[reqId][dataId] = time.Now()
 
 		incr <- struct{}{}
 	})

@@ -47,7 +47,7 @@ $redis->pconnect(REDIS_ADDRESS, REDIS_PORT);
 $redis->auth(REDIS_AUTH);
 
 // postback:[uuid]
-$postback_key = "postback" . uniqid();
+$postback_key = "postback" . uniqid(true);
 // postback:[uuid]:data
 $postback_data_key = $postback_key . ":data";
 
