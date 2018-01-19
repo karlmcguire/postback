@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -12,32 +13,30 @@ const (
 	DATA_COUNT    = 10
 )
 
+var Performance = make(map[string]map[string]int64)
+
 func Producer() {
 	var (
-		r = NewRequest(
-			"GET",
-			os.Getenv("TESTING_ADDR")+"/?time={time}&id={id}",
-		)
+		r   *Request
 		err error
 	)
 
-	// add DATA_COUNT data objects to the request with the time and id params so
-	// that we can estimate performance by subtracting the difference when
-	// received
-	for i := 0; i < DATA_COUNT; i++ {
-		data := map[string]string{
-			"time": fmt.Sprintf("%d", time.Now().Unix()),
-			"id":   fmt.Sprintf("%d", i),
+	for i := 0; i < REQUEST_COUNT; i++ {
+		r = NewRequest(
+			"GET",
+			os.Getenv("TESTING_ADDR")+"/?time={time}&req_id={rid}&data_id={did}",
+		)
+
+		for a := 0; a < DATA_COUNT; a++ {
+			data := map[string]string{
+				"time":    fmt.Sprintf("%d", time.Now().UnixNano()),
+				"req_id":  fmt.Sprintf("%d", i),
+				"data_id": fmt.Sprintf("%d", a),
+			}
+
+			r.AddData(data)
 		}
 
-		// keep in memory so we can track from the consumer
-		//Sent[data["id"]] = data["time"]
-
-		r.AddData(data)
-	}
-
-	// send each request to INGESTION_ADDR
-	for i := 0; i < REQUEST_COUNT; i++ {
 		if err = r.Send(os.Getenv("INGESTION_ADDR")); err != nil {
 			panic(err)
 		}
@@ -50,19 +49,62 @@ func Producer() {
 	)
 }
 
-func Counter(incr, stop chan struct{}) {
-	for i := 0; i < REQUEST_COUNT*DATA_COUNT; i++ {
-		<-incr
+func GetPerformance() int64 {
+	var (
+		count int64 = 0
+		total int64 = 0
+	)
+
+	for _, req := range Performance {
+		for _, diff := range req {
+			total = total + diff
+			count++
+		}
 	}
+
+	return total / count
+}
+
+func Counter(incr, stop chan struct{}) {
+	for i := 0; i < REQUEST_COUNT; i++ {
+		for a := 0; a < DATA_COUNT; a++ {
+			<-incr
+		}
+	}
+
+	fmt.Printf(
+		"consumer: \tjust received %d requests taking on average %dns (%dms)",
+		REQUEST_COUNT*DATA_COUNT,
+		GetPerformance(),
+		GetPerformance()*1000000,
+	)
+
 	stop <- struct{}{}
 }
 
 func Consumer(incr chan struct{}) {
+	fmt.Printf(
+		"consumer: \tlistening at %s%s",
+		os.Getenv("TESTING_ADDR"),
+		os.Getenv("TESTING_PORT"),
+	)
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf(
-			"consumer: \t got %s",
-			r.URL.String(),
+		var (
+			reqId      = r.URL.Query().Get("req_id")
+			dataId     = r.URL.Query().Get("data_id")
+			timeString = r.URL.Query().Get("time")
+			now        = time.Now().UnixNano()
+			timeNano   int64
+			err        error
 		)
+
+		if timeNano, err = strconv.ParseInt(timeString, 10, 64); err != nil {
+			panic(err)
+		}
+
+		Performance[reqId][dataId] = now - timeNano
+
 		incr <- struct{}{}
 	})
 
