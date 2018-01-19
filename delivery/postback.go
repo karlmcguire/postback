@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -125,6 +125,7 @@ func (p *Postback) Respond(value string) {
 		params map[string]string
 		client *http.Client = &http.Client{}
 		res    *http.Response
+		body   []byte
 		req    *http.Request
 		err    error
 	)
@@ -147,14 +148,17 @@ func (p *Postback) Respond(value string) {
 		return
 	}
 
-	var buf *bytes.Buffer
-	buf.ReadFrom(res.Body)
+	// read the body
+	if body, err = ioutil.ReadAll(res.Body); err != nil {
+		log.Print(err)
+		return
+	}
 
 	log.Printf(
 		"received: %s\n\tdelivered: %v\n\tresponse: %s\n\tbody: '%s'\n",
 		req.URL.String(),
 		time.Now(),
-		buf.String(),
+		string(body),
 	)
 }
 
