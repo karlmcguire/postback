@@ -1,20 +1,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
-	"os"
 	"time"
-)
-
-const (
-	REQUEST_COUNT = 1
-	DATA_COUNT    = 10
 )
 
 var (
 	Sent     = make(map[string]map[string]time.Time, 0)
 	Received = make(map[string]map[string]time.Time, 0)
+
+	REQUEST_COUNT = flag.Int(
+		"request_count",
+		10,
+		"number of requests to send",
+	)
+
+	DATA_COUNT = flag.Int(
+		"data_count",
+		1,
+		"number of data objects to send with each request",
+	)
+
+	TESTING_ADDR = flag.String(
+		"testing_addr",
+		"http://127.0.0.1:8080",
+		"the http address running this program",
+	)
+
+	INGESTION_ADDR = flag.String(
+		"ingestion_addr",
+		"http://127.0.0.1/ingest.php",
+		"the http location of the ingestion agent",
+	)
 )
 
 func Producer() {
@@ -23,15 +43,15 @@ func Producer() {
 		err error
 	)
 
-	for i := 0; i < REQUEST_COUNT; i++ {
+	for i := 0; i < *REQUEST_COUNT; i++ {
 		r = NewRequest(
 			"GET",
-			os.Getenv("TESTING_ADDR")+"/?req_id={req_id}&data_id={data_id}",
+			*TESTING_ADDR+"/?req_id={req_id}&data_id={data_id}",
 		)
 
 		Sent[fmt.Sprintf("%d", i)] = make(map[string]time.Time, 0)
 
-		for a := 0; a < DATA_COUNT; a++ {
+		for a := 0; a < *DATA_COUNT; a++ {
 			r.AddData(map[string]string{
 				"req_id":  fmt.Sprintf("%d", i),
 				"data_id": fmt.Sprintf("%d", a),
@@ -40,15 +60,15 @@ func Producer() {
 			Sent[fmt.Sprintf("%d", i)][fmt.Sprintf("%d", a)] = time.Now()
 		}
 
-		if err = r.Send(os.Getenv("INGESTION_ADDR")); err != nil {
+		if err = r.Send(*INGESTION_ADDR); err != nil {
 			panic(err)
 		}
 	}
 
-	fmt.Printf(
+	log.Printf(
 		"producer: \tjust sent %d requests with %d data objects each\n",
-		REQUEST_COUNT,
-		DATA_COUNT,
+		*REQUEST_COUNT,
+		*DATA_COUNT,
 	)
 }
 
@@ -82,15 +102,15 @@ func GetPerformance() time.Duration {
 }
 
 func Counter(incr, stop chan struct{}) {
-	for i := 0; i < REQUEST_COUNT; i++ {
-		for a := 0; a < DATA_COUNT; a++ {
+	for i := 0; i < *REQUEST_COUNT; i++ {
+		for a := 0; a < *DATA_COUNT; a++ {
 			<-incr
 		}
 	}
 
-	fmt.Printf(
+	log.Printf(
 		"consumer: \tjust received %d requests taking on average %v\n",
-		REQUEST_COUNT*DATA_COUNT,
+		*REQUEST_COUNT*(*DATA_COUNT),
 		GetPerformance(),
 	)
 
@@ -98,10 +118,9 @@ func Counter(incr, stop chan struct{}) {
 }
 
 func Consumer(incr chan struct{}) {
-	fmt.Printf(
-		"consumer: \tlistening at %s%s\n",
-		os.Getenv("TESTING_ADDR"),
-		os.Getenv("TESTING_PORT"),
+	log.Printf(
+		"consumer: \tlistening at %s\n",
+		*TESTING_ADDR,
 	)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +134,11 @@ func Consumer(incr chan struct{}) {
 		incr <- struct{}{}
 	})
 
-	http.ListenAndServe(os.Getenv("TESTING_PORT"), nil)
+	http.ListenAndServe(*TESTING_ADDR, nil)
+}
+
+func init() {
+	flag.Parse()
 }
 
 func main() {
@@ -130,5 +153,5 @@ func main() {
 
 	<-stop
 
-	println("finished")
+	log.Print("finished")
 }
