@@ -1,6 +1,5 @@
 <?php
-// config.php contains constants REDIS_ADDRESS, REDIS_PORT, and REDIS_AUTH (I'm
-// not including them in this repo for security reasons)
+// config.php contains constants REDIS_ADDRESS, REDIS_PORT, and REDIS_AUTH 
 include "config.php";
 
 // verify that the request is POST
