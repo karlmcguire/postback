@@ -97,10 +97,19 @@ These are the Redis commands I'm considering:
 
 This seems to be working well for now. I will consider making it more "modular" later. It's small and it works, so now I'll move on to the Delivery Agent.
 
-### Delivery Agent
+### Delivery Agent (4 hours)
 
+I found that Go's concurrency model really fit this use case, and I made extensive use of them. When the Delivery Agent receives a new postback object from Redis, a new goroutine is created to listen for data objects associated with that endpoint. And every time a data object is pushed to Redis, a new goroutine is started to make the necessary HTTP request.
 
+It's a simple service, and with more time I'm sure I could add more analytics and optimizations.
 
+### Testing Tool (2 hours)
+
+I created a small testing tool to produce requests for the Ingestion Agent and also consume requests from the Delivery Agent. This way I could see if anything was getting dropped, and could estimate performance.
+
+## Availability
+
+I just used a systemd service file for the Delivery Agent, as the rest of the components are already systemd services. It would be cool to Dockerize everything but I didn't have time.
 
 
 
