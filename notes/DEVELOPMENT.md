@@ -107,9 +107,34 @@ It's a simple service, and with more time I'm sure I could add more analytics an
 
 I created a small testing tool to produce requests for the Ingestion Agent and also consume requests from the Delivery Agent. This way I could see if anything was getting dropped, and could estimate performance.
 
-## Availability
+## Availability (15 minutes)
 
 I just used a systemd service file for the Delivery Agent, as the rest of the components are already systemd services. It would be cool to Dockerize everything but I didn't have time.
+
+To enable on boot I just ran:
+
+```
+$ systemctl enable delivery.service
+```
+
+And for viewing logs I use:
+
+```
+$ journalctl -f -u delivery.service
+```
+
+Which outputs something like:
+
+```
+2018/01/19 23:52:42 received: http://165.227.194.19:8080/?req_id=9&data_id=0
+                        delivery time:         2018-01-19 23:52:42.266251193 +0000 UTC
+                        response code:         200 OK
+                        response time:         2018-01-19 23:52:42.34192451 +0000 UTC
+                        response body:         ''
+```
+
+
+
 
 
 
